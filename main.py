@@ -14,9 +14,7 @@ books = sqlalchemy.Table(
     sqlalchemy.Column("Id", sqlalchemy.INTEGER, primary_key=True),
     sqlalchemy.Column("Title", sqlalchemy.String),
     sqlalchemy.Column("Author", sqlalchemy.String),
-    sqlalchemy.Column("Pages", sqlalchemy.Integer),
-    sqlalchemy.Column("ReaderId", sqlalchemy.ForeignKey('readers.Id'), nullable=False, index=True)
-
+    sqlalchemy.Column("Pages", sqlalchemy.Integer)
 )
 
 readers = sqlalchemy.Table(
@@ -25,6 +23,14 @@ readers = sqlalchemy.Table(
     sqlalchemy.Column("Id", sqlalchemy.INTEGER, primary_key=True),
     sqlalchemy.Column("FirstName", sqlalchemy.String),
     sqlalchemy.Column("LastName", sqlalchemy.String)
+ )
+
+readers_books = sqlalchemy.Table(
+    'read_books',
+    metadata,
+    sqlalchemy.Column("Id", sqlalchemy.INTEGER, primary_key=True),
+    sqlalchemy.Column("Book_Id", sqlalchemy.ForeignKey('books.Id'), nullable=False),
+    sqlalchemy.Column("Read_Id", sqlalchemy.ForeignKey('readers.Id'), nullable=False)
  )
 
 app = FastAPI()
@@ -56,3 +62,11 @@ async def create_book(request: Request):
  query = readers.insert().values(**data)
  last_record_id = await database.execute(query)
  return {"id": last_record_id}
+
+
+@app.post("/read/")
+async def read_book(request: Request):
+ data = await request.json()
+ query = readers_books.insert().values(**data)
+ last_record_id = await database.execute(query)
+ return {"id", last_record_id}
