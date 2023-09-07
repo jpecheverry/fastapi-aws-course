@@ -2,8 +2,9 @@ import databases
 import sqlalchemy
 
 from fastapi import FastAPI, Request
+from decouple import config
 
-DATABASE_URL = "postgresql://postgres:Anto2021@localhost:5438/store_aws"
+DATABASE_URL = "postgresql://{config.DB_USER}:{config.DB_PASSWORD}@localhost:5438/{config.DB_NAME}"
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
