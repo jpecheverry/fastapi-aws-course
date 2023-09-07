@@ -13,11 +13,9 @@ books = sqlalchemy.Table(
     metadata,
     sqlalchemy.Column("Id", sqlalchemy.INTEGER, primary_key=True),
     sqlalchemy.Column("Title", sqlalchemy.String),
-    sqlalchemy.Column("Author", sqlalchemy.String)
+    sqlalchemy.Column("Author", sqlalchemy.String),
+    sqlalchemy.Column("Pages", sqlalchemy.Integer)
 )
-
-engine = sqlalchemy.create_engine(DATABASE_URL)
-metadata.create_all(engine)
 
 app = FastAPI()
 
