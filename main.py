@@ -19,6 +19,43 @@ DATABASE_URL = f"postgresql://{config('DB_USER')}:{config('DB_PASSWORD')}@localh
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class CustomHTTPBearer(HTTPBearer):
+   async def __call__(
+         self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
+    res = await super().__call__(request)
+    try:
+      payload = jwt.decode(res.credentials, config("JWT_SECRET"), algorithms=["HS256"])
+      user = await database.fetch_one(users.select().where(users.c.id == payload["sub"]))
+      request.state.user = user
+      return payload
+    except jwt.ExpiredSignatureError:
+      raise HTTPException(401, "Token is expired")     
+    except jwt.InvalidTokenError:
+       raise HTTPException(401, "Invalid token")     
+
+
+oauth2_scheme = CustomHTTPBearer()
+
+def is_admin(request: Request):
+   user = request.state.user
+   if not user or user["role"] not in (UserRole.admin, UserRole.super_admin):
+      raise HTTPException(403, "You do not have permissions for this resource")
+ 
+def create_access_token(user): 
+   try:
+     payload = {"sub": user["id"], "exp": datetime.now() + timedelta(minutes=2400)}
+     return jwt.encode(payload, config("JWT_SECRET"), algorithm="HS256")
+   except Exception as ex:
+     raise ex   
+
+def hash_password(password):
+    # Hash a password using bcrypt
+    hashed_password = pwd_context.hash(password) 
+    return hashed_password
+
+
 class UserRole(enum.Enum):
    super_admin = "super_admin"
    admin = "admin"
@@ -88,26 +125,8 @@ clothes = sqlalchemy.Table(
     sqlalchemy.Column("CreatedDate_At", sqlalchemy.DateTime, nullable=False, server_default=sqlalchemy.func.now()),
     sqlalchemy.Column("LastModified_At", sqlalchemy.DateTime, nullable=False, server_default=sqlalchemy.func.now(),
                       onupdate=sqlalchemy.func.now())
- )
+ )  
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-class CustomHTTPBearer(HTTPBearer):
-   async def __call__(
-         self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
-    res = await super().__call__(request)
-    try:
-      payload = jwt.decode(res.credentials, config("JWT_SECRET"), algorithms=["HS256"])
-      user = await database.fetch_one(users.select().where(users.c.id == payload["sub"]))
-      request.state.user = user
-      return payload
-    except jwt.ExpiredSignatureError:
-      raise HTTPException(401, "Token is expired")     
-    except jwt.InvalidTokenError:
-       raise HTTPException(401, "Invalid token")     
-
-    
-oauth2_scheme = CustomHTTPBearer()
 
 class EmailField(str):
     @classmethod
@@ -144,8 +163,6 @@ class BaseUser(BaseModel):
            raise ValueError("Email is not valid")
 
 
-
-
 class UserSignIn(BaseUser):
     password: str
 
@@ -155,24 +172,22 @@ class UserSignOut(BaseUser):
     created_at: datetime
     last_modified_at: datetime
 
+class ClothesBase(BaseModel):
+   Name: str
+   Color: str
+   Size: SizeEnum
+   Color: ColorEnum
 
-def hash_password(password):
-    # Hash a password using bcrypt
-    hashed_password = pwd_context.hash(password) 
-    return hashed_password
+class ClothesIn(ClothesBase):
+   pass
 
+class ClothesOut(ClothesBase):
+   Id: int
+   CreatedDate_At: datetime
+   LastModified_At: datetime
 
 app = FastAPI()
 
-
-
-def create_access_token(user): 
-   try:
-     payload = {"sub": user["id"], "exp": datetime.now() + timedelta(minutes=2400)}
-     return jwt.encode(payload, config("JWT_SECRET"), algorithm="HS256")
-   except Exception as ex:
-     raise ex     
- 
 
 @app.on_event("startup")
 async def startup():
@@ -195,7 +210,7 @@ async def create_book(request: Request):
 
 
 @app.post("/readers/")
-async def create_book(request: Request):
+async def create_reader(request: Request):
  data = await request.json()
  query = readers.insert().values(**data)
  last_record_id = await database.execute(query)
@@ -203,7 +218,7 @@ async def create_book(request: Request):
 
 
 @app.post("/read/")
-async def read_book(request: Request):
+async def readers_book(request: Request):
  data = await request.json()
  query = readers_books.insert().values(**data)
  last_record_id = await database.execute(query)
@@ -212,9 +227,17 @@ async def read_book(request: Request):
 @app.get("/clothes", dependencies=[Depends(oauth2_scheme)])
 async def get_all_clothes():    
     return await database.fetch_all(clothes.select())
+
+@app.post("/clothes/",  response_model=ClothesOut, 
+                        dependencies=[Depends(oauth2_scheme), 
+                        Depends(is_admin)], 
+                        status_code=201)
+async def create_clothes(clothes_data:ClothesIn):
+   id = await database.execute(clothes.insert().values(**clothes_data.dict())) 
+   return await database.fetch_one(clothes.select().where(clothes.c.Id == id))
  
  
-@app.post("/register")
+@app.post("/register", status_code=201)
 async def create_user(user: UserSignIn):
  user.password = hash_password(user.password) 
  q = users.insert().values(**user.dict())
