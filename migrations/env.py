@@ -4,12 +4,20 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from main import metadata
+from decouple import config as env_config
+from db import metadata
+import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
+section = config.config_ini_section
+config.set_section_option(section, "DB_USER", env_config("DB_USER"))
+config.set_section_option(section, "DB_PASSWORD", env_config("DB_PASSWORD"))
+config.set_section_option(section, "DB_PORT", env_config("DB_PORT"))
+config.set_section_option(section, "DB_HOST", env_config("DB_HOST"))
+config.set_section_option(section, "DB_NAME", env_config("DB_NAME"))
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
