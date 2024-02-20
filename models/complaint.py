@@ -13,5 +13,5 @@ complaint = sqlalchemy.Table(
     sqlalchemy.Column("amount", sqlalchemy.FLOAT, nullable=False),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, nullable=False, server_default=sqlalchemy.func.now()),
     sqlalchemy.Column("state", sqlalchemy.Enum(State), nullable=False, server_default=State.pending.name),
-    sqlalchemy.Column("complainer_id", sqlalchemy.ForeignKey("users_id"), nullable=False)
+    sqlalchemy.Column("complainer_id", sqlalchemy.ForeignKey("users.id"), nullable=False)
 )
