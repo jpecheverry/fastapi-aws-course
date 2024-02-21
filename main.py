@@ -1,18 +1,17 @@
-from datetime import datetime, timedelta
-from typing import Optional
+from fastapi import FastAPI
 
-import enum
-import jwt
-from passlib.context import CryptContext
-from click import DateTime
-import databases
-import sqlalchemy
+from db import database
+from resources.routes import api_router
 
-from pydantic import BaseModel, validator
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from decouple import config
-from email_validator import EmailNotValidError, validate_email as validate_e
+app = FastAPI()
+app.include_router(api_router)
 
 
+@app.on_event("startup")
+async def startup():
+    await database.connect()
 
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()

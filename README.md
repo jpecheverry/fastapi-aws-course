@@ -26,3 +26,5 @@ It is a best practice to use UUID.uuid4 to generate the key and paste into the .
 
 python -m venv venv
 CTRL + ALT + O -> This command order the imports
+black .\resources\routes.py -> indent all code 
+pip install passlib
